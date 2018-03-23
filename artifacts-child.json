@@ -1,0 +1,29 @@
+{
+  "repo": "B6OV_MicroServices",
+  "path": "/2017-10-24-bps",
+  "created": "2017-10-09T18:14:17.628-04:00",
+  "lastModified": "2017-10-09T18:14:17.628-04:00",
+  "lastUpdated": "2017-10-09T18:14:17.628-04:00",
+  "children": [
+    {
+      "uri": "/day-1-basic-operations.zip",
+      "folder": true
+    },
+    {
+      "uri": "/day-2-basic-operations.zip",
+      "folder": true
+    },
+    {
+      "uri": "/day-3-basic-operations.zip",
+      "folder": true
+    },
+    {
+      "uri": "/day-4-basic-operations.zip",
+      "folder": true
+    },
+    {
+      "uri": "/day-5-basic-operations.zip",
+      "folder": true
+    }
+  ]
+}
