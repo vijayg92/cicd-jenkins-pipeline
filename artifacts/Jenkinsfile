@@ -40,7 +40,7 @@ def getArtifactList(branchName) {
       def arts = results['children']['uri']
       println(arts)
       arts.each { id -> 
-                arts.push("'"+id+"'")
+                artifact_list.push("'"+id+"'")
       }
   }
   return artifact_list
