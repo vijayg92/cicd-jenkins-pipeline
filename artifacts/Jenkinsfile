@@ -1,23 +1,10 @@
 import groovy.json.JsonSlurper;
 
-node {
-  stage('Select Branch')    
-    a = getBranchList()
-    choice_branch = new ChoiceParameterDefinition('Branch', a as String[], 'Select Branch Name')
-    def branch_input = input message: 'Select Branch', parameters: [choice_branch]
-    def branchName = branch_input.replace("'", "")
-
-  stage('Select Artifact')
-    b = getArtifactList(branchName)
-    choice_artifacts = new ChoiceParameterDefinition('Artifact', b as String[], 'Select Artifact Name')
-    def art_input = input message: 'Select Artifact', parameters: [choice_artifacts]
-    println(art_input)
-}
 
 def getBranchList() {
-  def API_URL = "https://raw.githubusercontent.com/vijayg92/jenkins-pipeline/master/artifacts/artifacts.json"
-  def conn = API_URL.toURL().openConnection()
   def branch_list = []
+  def branch_api = "https://raw.githubusercontent.com/vijayg92/jenkins-pipeline/master/artifacts/artifacts.json"
+  def conn = branch_api.toURL().openConnection()
  
   if( conn.responseCode == 200 ) {
       def results = new JsonSlurper().parseText(conn.content.text)
@@ -30,18 +17,31 @@ def getBranchList() {
 }
 
 def getArtifactList(branchName) {
-  def branch = branchName
-  def API_URL = "https://raw.githubusercontent.com/vijayg92/jenkins-pipeline/master/artifacts${branch}/artifacts-child.json"
-  def conn = API_URL.toURL().openConnection()
   def artifact_list = []
- 
+  def code_api = "https://raw.githubusercontent.com/vijayg92/jenkins-pipeline/master/artifacts${branchName}/artifacts-child.json"
+  def conn = code_api.toURL().openConnection()
+
   if( conn.responseCode == 200 ) {
       def results = new JsonSlurper().parseText(conn.content.text)
       def arts = results['children']['uri']
       println(arts)
       arts.each { id -> 
-                artifact_list.push("'"+id+"'")
+            artifact_list.push("'"+id+"'")
       }
   }
   return artifact_list
+}
+
+node() {
+  stage('Select Branch')    
+    a = getBranchList()
+    choice_branch = new ChoiceParameterDefinition('Branch', a as String[], 'Select Branch Name')
+    def branch_input = input message: 'Select Branch', parameters: [choice_branch]
+    def branchName = branch_input.replace("'", "")
+
+  stage('Select Artifact')
+    b = getArtifactList(branchName)
+    choice_artifacts = new ChoiceParameterDefinition('Artifact', b as String[], 'Select Artifact Name')
+    art_input = input message: 'Select Artifact', parameters: [choice_artifacts]
+    println(art_input)
 }
