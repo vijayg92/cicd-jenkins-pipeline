@@ -1,28 +1,64 @@
 {
   "repo": "B6OV_MicroServices",
-  "path": "/2017-10-24-bps",
+  "path": "/",
   "created": "2017-10-09T18:14:17.628-04:00",
   "lastModified": "2017-10-09T18:14:17.628-04:00",
   "lastUpdated": "2017-10-09T18:14:17.628-04:00",
   "children": [
     {
-      "uri": "/day-1-basic-operations.zip",
+      "uri": "/2017-10-24-bps",
       "folder": true
     },
     {
-      "uri": "/day-2-basic-operations.zip",
+      "uri": "/2017-10-24-mbcb",
       "folder": true
     },
     {
-      "uri": "/day-3-basic-operations.zip",
+      "uri": "/2017-11-08-bps",
       "folder": true
     },
     {
-      "uri": "/day-4-basic-operations.zip",
+      "uri": "/2017-11-08-ms",
       "folder": true
     },
     {
-      "uri": "/day-5-basic-operations.zip",
+      "uri": "/2017-11-14-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2017-11-28-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2017-12-06-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2017-12-12-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2018-01-04-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2018-01-10-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2018-01-17-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2018-01-23-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2018-02-07-ms",
+      "folder": true
+    },
+    {
+      "uri": "/2018-02-20-ms",
       "folder": true
     }
   ]
