@@ -1,0 +1,43 @@
+try {
+
+  node(){
+
+    try {
+
+        stage('Build')
+            echo "Starting Build"
+
+        stage('Deploy: Dev')
+            echo "Starting Deployment in Dev environment"
+
+        stage('PromoteTo: QA')
+            input message: 'Promote Deployment from Dev to QA Environment?', ok: 'Promote',  submitterParameter: 'submitter'
+            println(deployer)
+
+        stage('Deploy: QA')
+            echo "Starting Deployment in QA environment"
+
+        stage('PromoteTo: Stage')
+            input message: 'Promote Deployment from QA to Stage Environment?', ok: 'Promote',  submitterParameter: 'submitter'
+
+        stage('Deploy: Stage')
+            echo "Starting Deployment in stage environment"
+
+        stage('PromoteTo: Prod')
+            input message: 'Promote Deployment from Stage to Prod Environment?', ok: 'Promote',  submitterParameter: 'submitter'
+
+        stage('Deploy: Prod')
+            echo "Starting Deployment in Prod environment"
+
+      } catch (err) {
+            currentBuild.result = "FAILED"
+            throw err
+
+      } finally {
+          // Send notifications
+      }
+  }
+} catch (e) {
+    currentBuild.result = "FAILED"
+    throw e
+}

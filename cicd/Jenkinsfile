@@ -1,0 +1,107 @@
+@Library('mylib-jenkins')_
+
+import com.example.jenkins.Jira
+import com.example.jenkins.Notifications
+
+def jiraUtils = new Jira()
+def notificationUtils = new Notifications()
+
+def issue = ''
+def deployerHost = 'slave-jenkins'
+def projectName = 'ProjectX'
+def appName = 'app1'
+def devEmail = 'devemail1@gmail.com'
+def qaEmail = 'qaemail1@gmail.com'
+def devOpsEmail = 'vijaysingh392@gmail.com'
+
+
+try {
+
+  node(deployerHost){
+
+    try {
+
+        stage('Build')
+            notificationUtils.notifyDevByEmail("${devEmail}")
+
+        stage('DevOps Approval')
+            notificationUtils.notifyDevOpsByEmail("${devOpsEmail}")
+
+            deployer = input message: 'DevOps Approval for Deployement?', ok: 'Approve',  submitterParameter: 'submitter'
+            if (issue != null) {
+                jiraUtils.assignIssue(issue: issue, assignee: deployer)
+                jiraUtils.addIssueComment(issue: issue, comment: "DevOps Approval for Dev Deployment - Approved by - [~${deployer}]")
+            }
+
+        stage('Deploy: Dev')
+          echo "Starting Deployment in Dev environment"
+
+        stage('PromoteTo: QA')
+            notificationUtils.notifyQAByEmail("${qaEmail}")
+
+            deployer = input message: 'Promote Deployment from Dev to QA Environment?', ok: 'Promote',  submitterParameter: 'submitter'
+            println(deployer)
+            if (issue != null) {
+                jiraUtils.addIssueComment(issue: issue, comment: "QA Approval for promoting Dev to QA environment - Approved by - [~${deployer}]")
+            }
+
+        stage('Deploy: QA')
+        echo "Starting Deployment in QA environment"
+
+        stage('PromoteTo: Stage')
+            notificationUtils.notifyQAByEmail("${qaEmail}")
+
+            deployer = input message: 'Promote Deployment from QA to Stage Environment?', ok: 'Promote',  submitterParameter: 'submitter'
+            if (issue != null) {
+                jiraUtils.addIssueComment(issue: issue, comment: "QA Approval for promoting QA to Stage environment - Approved by - [~${deployer}]")
+            }
+
+        stage('DevOps Approval')
+            notificationUtils.notifyDevOpsByEmail("${devOpsEmail}")
+
+            deployer = input message: 'DevOps Approval for Deployment?', ok: 'Approve',  submitterParameter: 'submitter'
+            if (issue != null) {
+                jiraUtils.assignIssue(issue: issue, assignee: deployer)
+                jiraUtils.addIssueComment(issue: issue, comment: "DevOps Approval for Stage Deployment - Approved by - [~${deployer}]")
+            }
+
+
+        stage('Deploy: Stage')
+            echo "Starting Deployment in stage environment"
+
+        stage('PromoteTo: Prod')
+            notificationUtils.notifyQAByEmail("${qaEmail}")
+
+            deployer = input message: 'Promote Deployment from Stage to Prod Environment?', ok: 'Promote',  submitterParameter: 'submitter'
+            if (issue != null) {
+                jiraUtils.addIssueComment(issue: issue, comment: "QA Approval for promoting Stage to Prod environment - Approved by - [~${deployer}]")
+            }
+
+        stage('DevOps Approval')
+            notificationUtils.notifyDevOpsByEmail("${devOpsEmail}")
+
+            deployer = input message: 'DevOps Approval for Deployement?', ok: 'Approve',  submitterParameter: 'submitter'
+            if (issue != null) {
+                jiraUtils.assignIssue(issue: issue, assignee: deployer)
+                jiraUtils.addIssueComment(issue: issue, comment: "DevOps Approval for Prod Deployment - Approved by - [~${deployer}]")
+            }
+
+        stage('Deploy: Prod')
+            echo "Starting Deployment in Prod environment"
+
+      } catch (err) {
+            currentBuild.result = "FAILED"
+            throw err
+
+      } finally {
+          if (issue != null) {
+              jiraUtils.completeDeployment(issue: issue, result: currentBuild.result)
+          }
+          notificationUtils.notifyByIRC(currentBuild.result, "#cpreleases")
+          notificationUtils.notifyByEmail(currentBuild.result, "${devOpsEmail}")
+      }
+  }
+} catch (e) {
+    currentBuild.result = "FAILED"
+    throw e
+}
