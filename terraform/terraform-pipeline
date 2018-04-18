@@ -1,0 +1,59 @@
+node('master') {
+
+    stage('Code Checkout')
+    def terraform_bin = getTerraform("0.11.5")
+
+    stage('Terraform Plan')
+      dir('/data/jenkins/haproxy_management') {
+        sh"""\
+        #!/bin/bash
+        set -ex
+
+        ${terraform_bin} init
+        ${terraform_bin} plan --var "aws_access_key=AKIAJ3JZR42GM4T6HMIQ" --var "aws_secret_key=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" --var "aws_region=${AWS_REGION}"\
+        --var "cidr_address_space=${AWS_VPC_CIDR}" --var "subnet1_address_space=${VPC_SUBNET1_CIDR}" --var "subnet2_address_space=${VPC_SUBNET2_CIDR}" \
+        --var "haproxy_eip1=${HAPROXY_EIP1}" --var "haproxy_eip2=${HAPROXY_EIP2} --var "private_key_path=/data/jenkins/haproxy_management/DevOpsUser.pem"
+        """
+      }
+
+    if( "${ACTION}" == "deploy" ) {
+        stage('Terraform Apply')
+            dir('/data/jenkins/haproxy_management') {
+                sh"""\
+                #!/bin/bash
+                set -ex
+
+                ${terraform_bin} ${ACTION} --var "aws_access_key=AKIAJ3JZR42GM4T6HMIQ" --var "aws_secret_key=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" --var "aws_region=${AWS_REGION}"\
+                --var "cidr_address_space=${AWS_VPC_CIDR}" --var "subnet1_address_space=${VPC_SUBNET1_CIDR}" --var "subnet2_address_space=${VPC_SUBNET2_CIDR}" \
+                --var "haproxy_eip1=${HAPROXY_EIP1}" --var "haproxy_eip2=${HAPROXY_EIP2} --var "private_key_path=./DevOpsUser.pem"
+               """
+            }
+    else {
+        stage('Terraform Destroy')
+            dir('/data/jenkins/haproxy_management') {
+                sh"""\
+                #!/bin/bash
+                set -ex
+
+                ${terraform_bin} ${ACTION} --var "aws_access_key=AKIAJ3JZR42GM4T6HMIQ" --var "aws_secret_key=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" --var "aws_region=${AWS_REGION}"\
+                --var "cidr_address_space=${AWS_VPC_CIDR}" --var "subnet1_address_space=${VPC_SUBNET1_CIDR}" --var "subnet2_address_space=${VPC_SUBNET2_CIDR}" \
+                --var "haproxy_eip1=${HAPROXY_EIP1}" --var "haproxy_eip2=${HAPROXY_EIP2} --var "private_key_path=./DevOpsUser.pem"
+               """
+    }
+}
+
+
+def getTerraform(String version) {
+   def fileName = "terraform_"+version+"_linux_amd64.zip"
+   def binPath = "/tmp/terraform"
+
+   if (!fileExists("/tmp/${fileName}")) {
+     // Download client if there's not downloaded yet
+     sh "wget https://releases.hashicorp.com/terraform/${version}/${fileName} -O /tmp/${fileName}"
+     if (!fileExists("${binPath}")) {
+        sh "tar -xvzf /tmp/${fileName} -C /tmp/"
+     }
+    }
+   return "/tmp/terraform"
+}
+  

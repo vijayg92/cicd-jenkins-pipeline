@@ -1,0 +1,48 @@
+def slave_node = 'linux-build-119'
+def toEmail = 'vgosai@example.com'
+
+try {
+
+    node(slave_node) {
+
+        properties([pipelineTriggers([cron('H H(21-23) * * *')])])
+        timeout(time: 120, unit: 'SECONDS') {
+
+        try {        
+            deleteDir() //cleanWs()
+                
+            stage('Code Checkout')
+                checkout scm 
+                
+            stage('Build')
+                sshagent(['credential-id']) {
+                    sh returnStdout: true, script: 'build.sh'
+                }
+            }
+
+        } catch (e) {
+            currentBuild.result = 'FAILURE'
+            throw e
+
+        } finally {
+            if (currentBuild.result == 'FAILED') {
+                notifyByEmail(currentBuild.result, "${toEmail}")
+            } else if (currentBuild.result == 'UNSTABLE') {
+                notifyByEmail(currentBuild.result, "${toEmail}")
+            }
+        }
+    }
+} catch (err) {
+    throw err
+}
+
+def notifyByEmail(String buildStatus, String email) {
+    emailext ( 
+        subject: "Jenkins Job Failure: '${env.JOB_NAME} [${env.BUILD_NUMBER}]'", 
+        body: """Jenkins: <p>${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                <p>Check console output at ;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>""",
+        to: "${email}",
+        replyTo: 'jenkins@example.com',
+        mimeType: 'test/html'
+    )
+}

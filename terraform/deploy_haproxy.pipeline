@@ -1,0 +1,96 @@
+pipeline {
+
+    agent {
+      node {
+        label 'master'
+      }
+    }
+    
+    parameters {
+        choice(choices: 'dev\nstage\nprod', name: 'DEPLOYMENT_TYPE', description: 'Deployment Environment: Dev/Stage/Prod')
+    }
+    
+    environment {
+            DYNAMODB_STATELOCK = "terraform-haproxy-lock"
+            S3_STATE_BUCKET = "terraform-haproxy-state"
+            AWS_ACCESS_KEY_DEV = credentials('AWS_ACCESS_KEY_DEV')
+            AWS_SECRET_KEY_DEV = credentials('AWS_SECRET_KEY_DEV')
+            AWS_ACCESS_KEY_STAGE = credentials('AWS_ACCESS_KEY_STAGEING')
+            AWS_SECRET_KEY_STAGE = credentials('AWS_SECRET_KEY_STAGEING')
+            AWS_ACCESS_KEY_PROD = credentials('AWS_ACCESS_KEY_PRODUCTION')
+            AWS_SECRET_KEY_PROD = credentials('AWS_SECRET_KEY_PRODUCTION')
+    }
+
+    stages {
+
+       stage('Checkout SCM') {
+         steps {
+		checkout scm
+            }
+        }
+
+      stage('Initialize Terraform') {
+        steps {
+          dir ("kubernetes/aws/haproxy_management/${params.DEPLOYMENT_TYPE}") {
+            script {
+		def TERRAFORM_CMD = getTerraform('1.0.9')
+                try{
+                  sh """ ${TERRAFORM_CMD} init -input=false --backend-config='dynamodb_table=${DYNAMODB_STATELOCK}' --backend-config='bucket=${S3_STATE_BUCKET}' --backend-config='access_key=${AWS_ACCESS_KEY_DEV}' --backend-config='secret_key=${AWS_SECRET_KEY_DEV}' """
+                } catch (err) {
+                    throw err
+                }
+            }  
+          }
+        }
+      }
+
+      stage('Terraform Plan'){
+          steps {
+              dir ("kubernetes/aws/haproxy_management/${params.DEPLOYMENT_TYPE}") {
+                  script {
+		    def TERRAFORM_CMD = getTerraform('1.0.9')
+                      try {
+                         sh "${TERRAFORM_CMD} workspace new ${params.DEPLOYMENT_TYPE}"
+                      } catch (err) {
+                          sh "${TERRAFORM_CMD} workspace select ${params.DEPLOYMENT_TYPE}"
+                      }
+                      sh """ ${TERRAFORM_CMD} plan -var 'aws_access_key=${AWS_ACCESS_KEY_DEV}' -var 'aws_secret_key=${AWS_SECRET_KEY_DEV}' -out terraform-haproxy.tfplan """
+                      stash name: "terraform-haproxy-plan", includes: "terraform-haproxy.tfplan"
+                  }
+              }
+          }
+      }
+  
+      stage('Terraform Run'){
+          steps {
+            dir ("kubernetes/aws/haproxy_management/${params.DEPLOYMENT_TYPE}") {
+              script{
+		  def TERRAFORM_CMD = getTerraform('1.0.9')
+                    try {
+                        input message: "Deploy Terraform: Confirm", ok: "Apply"
+                        apply = true
+                        unstash "terraform-haproxy-plan"
+                        sh """ ${TERRAFORM_CMD} apply terraform-haproxy.tfplan """
+                    } catch (err) {
+                        sh """ ${TERRAFORM_CMD} destroy -auto-approve -var 'aws_access_key=${AWS_ACCESS_KEY_DEV}' -var 'aws_secret_key=${AWS_SECRET_KEY_DEV}' """
+                    }
+                  }
+              }
+          }
+      }
+    }
+  }
+
+def getTerraform(String version) {
+   def fileName = "terraform_"+version+"_linux_amd64.zip"
+   def binPath = "/tmp/terraform"
+
+   if (!fileExists("/tmp/${fileName}")) {
+     // Download client if there's not downloaded yet
+     sh "wget https://releases.hashicorp.com/terraform/${version}/${fileName} -O /tmp/${fileName}"
+     if (!fileExists("${binPath}")) {
+        sh "unzip /tmp/${fileName} -d /tmp/"  
+     }
+    }
+   return "/tmp/terraform"
+}
