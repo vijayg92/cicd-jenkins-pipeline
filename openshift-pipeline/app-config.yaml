@@ -1,0 +1,39 @@
+---
+- project:
+    name: Prodigy
+    desc: "Prodigy Application"
+    label: prodigy
+    apps:
+    - listener:
+        version: "0.1.0"
+        replicas: "2"
+    - processor:
+        version: "0.1.0"
+        replicas: "2"
+    - rules:
+        version: "0.1.0"
+        replicas: "2"
+    - stats:
+        version: "0.1.0"
+        replicas: "2"
+    - rabbitmq:
+        version: "0.1.0"
+        replicas: "2"
+    - redis:
+        version: "0.1.0"
+        replicas: "2"
+    registry: "registry.paas.redhat.com/${label}"
+    envs:
+    - dev:
+        api_url: "https://paas.dev.redhat.com"
+        auth_token: "xxxxxxxx"
+    - qa:
+        api_url: "https://paas.qa.redhat.com"
+        auth_token: "xxxxxxxx"
+    - stage:
+        api_url: "https://paas.stage.redhat.com"
+        auth_token: "xxxxxxxx"
+    - prod:
+        api_url: "https://paas.redhat.com"
+        auth_token: "xxxxxxxx"
+    email_recipent: "vgosai@redhat.com"

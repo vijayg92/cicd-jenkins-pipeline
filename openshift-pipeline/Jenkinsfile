@@ -1,0 +1,167 @@
+@Library('cp-jenkins')_
+
+// Define libraries
+import com.redhat.cp.jenkins.Notifications
+import com.redhat.cp.jenkins.Deployments
+
+def notificationHelper = new Notifications()
+def deploymentHelper = new Deployments()
+def APP_LABEL = ''
+def API_URL = ''
+def DEV_TOKEN = ''
+def STG_TOKEN = ''
+def PRD_TOKEN = ''
+def NEW_APP_VERSION = ''
+def CURRENT_APP_VERSIONS = [:]
+
+// Declare application runtimes as per developer's requirement
+def build_list = ["listener", "processor", "rules", "stats"]
+def tasks = [:]
+
+node {
+
+        try {
+
+            notificationHelper.notifyByIRC(currentBuild.result, "#cpreleases")
+            notificationHelper.notifyByEmail(currentBuild.result, "cp-devops@redhat.com")
+            
+	    stage '\u2714 Code: Checkout'
+                sh "git config --global http.sslVerify false";
+                checkout scm
+
+            // Load application configuration from app-config.yaml
+                if ( fileExists("./app-config.yaml") ) {
+                    def config = readYaml file: "./app-config.yaml"
+                    APP_LABEL = config["application"]["label"]
+                    NEW_APP_VERSION = config["application"]["app_version"]
+                    API_URL = config["application"]["environment"]["dev"]["api_url"]
+                    DEV_TOKEN = config["application"]["environment"]["dev"]["auth_token"]
+                    STG_TOKEN = config["application"]["environment"]["stage"]["auth_token"]
+                    PRD_TOKEN = config["application"]["environment"]["prod"]["auth_token"]
+
+                } else {
+                    error "Error: No application config file found"
+                }
+
+            // Dev Environment variables declaration to Open PaaS
+                stage '\u2714 Verify: AppVersion'
+                    for (int i = 0; i < build_list.size(); i++) {
+                      def index = i
+                        tasks["${build_list[index]}"] = {
+                          CURRENT_APP_VERSIONS["${build_list[index]}"] = deploymentHelper.verifyAppVersion(
+                                api_url: API_URL,
+                                auth_token: DEV_TOKEN,
+                                namespace: APP_LABEL+"-dev",
+                                image_stream: "${build_list[index]}",
+                               new_app_version: NEW_APP_VERSION
+                            )
+                        }
+                    }
+                parallel tasks
+
+                stage '\u2714 Build: Dev'
+                   for (int j = 0; j < build_list.size(); j++) {
+                      def index = j
+                      tasks["${build_list[index]}"] = {
+                           deploymentHelper.buildApplication(
+                               api_url: API_URL,
+                               auth_token: DEV_TOKEN,
+                               namespace: APP_LABEL+"-dev",
+                               build_config: "${build_list[index]}"
+                            )
+                        }
+                    }
+                parallel tasks
+
+                stage '\u2714 Tag: Dev'
+                    for (int k = 0; k < build_list.size(); k++) {
+                        def index = k
+                          tasks["${build_list[index]}"] = {
+                            deploymentHelper.promoteApplication(
+                              api_url: API_URL,
+                              auth_token: DEV_TOKEN,
+                              namespace: APP_LABEL+"-dev",
+                              source_stream: "${build_list[index]}",
+                              source_tag: CURRENT_APP_VERSIONS["${build_list[index]}"],
+                              destination_stream: "${build_list[index]}",
+                              destination_tag: NEW_APP_VERSION,
+                              destination_namespace: APP_LABEL+"-dev",
+                              destination_auth_token: DEV_TOKEN
+                           )
+                        }
+                    }
+                parallel tasks
+
+                stage '\u2714Deploy: Dev'
+                  for (int x = 0; x < build_list.size(); x++) {
+                    def index = x
+                        tasks["${build_list[index]}"] = {
+                            deploymentHelper.deployApplication(
+                              api_url: API_URL,
+                              auth_token: DEV_TOKEN,
+                              namespace: APP_LABEL+"-dev",
+                              deploy_config: "${build_list[index]}"
+                            )
+                        }
+                    }
+                parallel tasks
+
+                stage '\u2714Test: Dev'
+                  println("Testing Development")
+
+                stage '\u2714PromoteTo: Stage'
+                  input message:'Approval to promote application from Dev to Stage?'
+
+                    for (int y = 0; y < build_list.size(); y++) {
+                        def index = y
+                          tasks["${build_list[index]}"] = {
+                            deploymentHelper.promoteApplication(
+                              api_url: API_URL,
+                              auth_token: DEV_TOKEN,
+                              namespace: APP_LABEL+"-dev",
+                              source_stream: "${build_list[index]}",
+                              source_tag: CURRENT_APP_VERSIONS["${build_list[index]}"],
+                              destination_stream: "${build_list[index]}",
+                              destination_tag: "stage",
+                              destination_namespace: APP_LABEL+"-stage",
+                              destination_auth_token: STG_TOKEN
+                           )
+                        }
+                    }
+                parallel tasks
+
+                stage '\u2714 Deploy: Stage'
+                  for (int z = 0; z < build_list.size(); z++) {
+                    def index = z
+                        tasks["${build_list[index]}"] = {
+                            deploymentHelper.deployApplication(
+                              api_url: API_URL,
+                              auth_token: STG_TOKEN,
+                              namespace: APP_LABEL+"-stage",
+                              deploy_config: "${build_list[index]}"
+                            )
+                        }
+                    }
+                parallel tasks
+
+                stage '\u2714 Test: Stage'
+                  println("Stage testing")
+
+                stage '\u2714PromoteTo: Prod'
+                  input message:'Approval to promote application from Stage to Prod?'
+
+                stage '\u2714Deploy: Prod'
+                  println("Prod Deployment")
+
+                stage '\u2714Test: Prod'
+                  println("Prod Testing")
+
+		currentBuild.result = 'SUCCESS'
+     } catch (e) {
+          	currentBuild.result = 'FAILED'
+          	throw e
+     } finally {
+              notificationHelper.notifyByIRC(currentBuild.result, "#cpreleases")
+              notificationHelper.notifyByEmail(currentBuild.result, "cp-devops@redhat.com")
+    }
+}
